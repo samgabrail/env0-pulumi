@@ -1,3 +1,4 @@
+import json
 import pulumi
 from pulumi import Output
 from pulumi_aws import ec2, iam, eks
@@ -6,10 +7,20 @@ from pulumi_aws import ec2, iam, eks
 config = pulumi.Config()
 cluster_name = config.require("cluster_name")
 cluster_version = config.require("cluster_version")
-instance_types = list(config.require("instance_types"))
+instance_types_str = config.require("instance_types")
 cluster_min_size = config.require_int("cluster_min_size")
 cluster_max_size = config.require_int("cluster_max_size")
 cluster_desired_size = config.require_int("cluster_desired_size")
+private_subnets_str = config.require("private_subnets")
+availability_zones_str = config.require("availability_zones")
+private_subnets = json.loads(private_subnets_str)
+availability_zones = json.loads(availability_zones_str)
+instance_types = json.loads(instance_types_str)
+
+# Using Pulumi logging for cleaner debug output
+pulumi.log.info(f"These are the private subnets: {private_subnets}, {type(private_subnets)}")
+pulumi.log.info(f"These are the availability zones: {availability_zones}")
+
 
 # Define IAM Role
 iam_role = iam.Role("eks-node-role",
@@ -39,35 +50,30 @@ vpc = ec2.Vpc(
     },
 )
 
-# Create public and private subnets
-public_subnet = ec2.Subnet(
-    "publicSubnet",
-    cidr_block="10.0.1.0/24",
-    vpc_id=vpc.id,
-    tags={
-        "Name": "publicSubnet",
-        f"kubernetes.io/cluster/{cluster_name}": "shared",
-        "kubernetes.io/role/elb": "1",
-    },
-)
+# Create private subnets
+private_subnet_ids = []
+for i in range(len(private_subnets)):
+    pulumi.log.info(f"cidr block: {private_subnets[i]}")
+    subnet = ec2.Subnet(
+        f"privateSubnet{i + 1}",
+        cidr_block=private_subnets[i],
+        vpc_id=vpc.id,
+        availability_zone=availability_zones[i],
+        tags={
+            "Name": f"privateSubnet{i + 1}",
+            f"kubernetes.io/cluster/{cluster_name}": "shared",
+            "kubernetes.io/role/internal-elb": "1",
+        },
+    )
+    private_subnet_ids.append(subnet.id)
 
-private_subnet = ec2.Subnet(
-    "privateSubnet",
-    cidr_block="10.0.2.0/24",
-    vpc_id=vpc.id,
-    tags={
-        "Name": "privateSubnet",
-        f"kubernetes.io/cluster/{cluster_name}": "shared",
-        "kubernetes.io/role/internal-elb": "1",
-    },
-)
 
 
 # Create an EKS cluster
 eks_cluster = eks.Cluster(cluster_name,
                           role_arn=iam_role.arn,
                           vpc_config=eks.ClusterVpcConfigArgs(
-                              subnet_ids=[public_subnet.id, private_subnet.id]
+                              subnet_ids=private_subnet_ids
                           ),
                           version=cluster_version,
                           )
@@ -100,7 +106,7 @@ nodegroup_role_policy_attachment = iam.RolePolicyAttachment("eks-AmazonEKSWorker
 nodegroup = eks.NodeGroup("eks-nodegroup",
     cluster_name=eks_cluster.name,
     node_role_arn=nodegroup_role.arn,
-    subnet_ids=[public_subnet.id, private_subnet.id],
+    subnet_ids=private_subnet_ids,
     scaling_config=eks.NodeGroupScalingConfigArgs(
         desired_size=cluster_desired_size,
         min_size=cluster_min_size,
