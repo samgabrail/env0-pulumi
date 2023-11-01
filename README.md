@@ -22,7 +22,11 @@ pulumi new
 ```bash
 export AWS_ACCESS_KEY_ID=your-access-key-id
 export AWS_SECRET_ACCESS_KEY=your-secret-access-key
-pulumi new
-pulumi preview
 pulumi up
+```
+
+To get the kubeconfig for the EKS cluster:
+
+```bash
+aws eks update-kubeconfig --name $(pulumi stack output ClusterName)
 ```
