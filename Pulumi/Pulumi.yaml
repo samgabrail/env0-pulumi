@@ -1,0 +1,6 @@
+name: pulumi-eks
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: Provision an EKS cluster in AWS with Pulumi
