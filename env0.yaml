@@ -1,0 +1,7 @@
+version: 1
+
+deploy:
+  steps:
+    pulumi:
+      before:
+        - pulumi config set pulumi-eks:cluster_name env0_eks_cluster_2

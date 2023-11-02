@@ -1,6 +1,5 @@
 import json
 import pulumi
-from pulumi import Output
 from pulumi_aws import ec2, iam, eks
 
 # Define vars
@@ -20,7 +19,6 @@ availability_zones = json.loads(availability_zones_str)
 pulumi.log.info(
     f"These are the private subnets: {private_subnets}, {type(private_subnets)}")
 pulumi.log.info(f"These are the availability zones: {availability_zones}")
-
 
 
 # Define IAM Role
@@ -68,12 +66,50 @@ for i in range(len(private_subnets)):
     )
     private_subnet_ids.append(subnet.id)
 
+# Create an EKS cluster security group
+eks_cluster_sg = ec2.SecurityGroup('eks-cluster-sg',
+                                   vpc_id=vpc.id,
+                                   description='EKS cluster security group',
+                                   tags={
+                                       "Name": "eks-cluster-sg",
+                                       f"kubernetes.io/cluster/{cluster_name}": "owned",
+                                   })
+
+# Create a security group for worker nodes
+nodegroup_sg = ec2.SecurityGroup('nodegroup-sg',
+                                 vpc_id=vpc.id,
+                                 description='Worker node security group',
+                                 tags={
+                                     "Name": "nodegroup-sg",
+                                     f"kubernetes.io/cluster/{cluster_name}": "owned",
+                                 })
+
+# Allow inbound communication from the control plane to the worker nodes
+eks_cluster_sg_rule = ec2.SecurityGroupRule('eks-cluster-sg-rule',
+                                            type="ingress",
+                                            from_port=1025,
+                                            to_port=65535,
+                                            protocol="tcp",
+                                            security_group_id=nodegroup_sg.id,
+                                            source_security_group_id=eks_cluster_sg.id)
+
+# Allow outbound communication from the worker nodes to the control plane
+nodegroup_sg_rule = ec2.SecurityGroupRule('nodegroup-ingress',
+                                          type='ingress',
+                                          from_port=0,
+                                          to_port=65535,
+                                          protocol='tcp',
+                                          security_group_id=nodegroup_sg.id,  # Attach the rule to the node group's SG
+                                          # Allowing traffic from itself, adjust as necessary
+                                          source_security_group_id=nodegroup_sg.id,
+                                          description='Allow node to node communication within the same SG')
 
 # Create an EKS cluster
 eks_cluster = eks.Cluster(cluster_name,
                           role_arn=iam_role.arn,
                           vpc_config=eks.ClusterVpcConfigArgs(
-                              subnet_ids=private_subnet_ids
+                              subnet_ids=private_subnet_ids,
+                              security_group_ids=[eks_cluster_sg.id]
                           ),
                           version=cluster_version,
                           )
@@ -113,7 +149,9 @@ for policy in policies_to_attach:
 
 
 launch_template = ec2.LaunchTemplate("nodegroup-launch-template",
-                                     instance_type=instance_type
+                                     instance_type=instance_type,
+                                     description="Launch Template for EKS Node Group",
+                                     vpc_security_group_ids=[nodegroup_sg.id]
                                      )
 
 
@@ -129,8 +167,7 @@ nodegroup = eks.NodeGroup("eks-nodegroup",
                           launch_template={
                               "id": launch_template.id,
                               "version": launch_template.latest_version,
-                          }
-                          )
+                          })
 
 
 pulumi.export("ClusterEndpoint", eks_cluster.endpoint)
