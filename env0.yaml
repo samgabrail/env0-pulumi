@@ -4,4 +4,4 @@ deploy:
   steps:
     pulumiPreview:
       before:
-        - cd Pulumi && pulumi config set aws:region:us-east-1
+        - cd Pulumi && pulumi config set aws:region us-east-1
