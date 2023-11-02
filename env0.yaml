@@ -4,13 +4,10 @@ deploy:
   steps:
     pulumiPreview:
       before:
-        - cd Pulumi && pulumi config set-all \
+        - cd Pulumi-EKS && pulumi config set-all \
           --plaintext aws:region=us-east-1 \
-          --plaintext pulumi-eks:cluster_name=env0_eks_cluster \
-          --plaintext pulumi-eks:cluster_version=1.28 \
-          --plaintext pulumi-eks:instance_type=t2.small \
-          --plaintext pulumi-eks:cluster_min_size=1 \
-          --plaintext pulumi-eks:cluster_max_size=3 \
-          --plaintext pulumi-eks:cluster_desired_size=2 \
-          --plaintext pulumi-eks:private_subnets='["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]' \
-          --plaintext pulumi-eks:availability_zones='["us-east-1a", "us-east-1b", "us-east-1c"]'
+          --plaintext my-pulumi-eks-env0:desiredClusterSize="2" \
+          --plaintext my-pulumi-eks-env0:eksNodeInstanceType=t2.small \
+          --plaintext my-pulumi-eks-env0:maxClusterSize="3" \
+          --plaintext my-pulumi-eks-env0:minClusterSize="1" \
+          --plaintext my-pulumi-eks-env0:vpcNetworkCidr=10.0.0.0/16
