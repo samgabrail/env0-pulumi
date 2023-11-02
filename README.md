@@ -30,3 +30,9 @@ To get the kubeconfig for the EKS cluster:
 ```bash
 aws eks update-kubeconfig --name $(pulumi stack output ClusterName)
 ```
+
+Now run kubectl commands to interact with the EKS cluster:
+
+```bash
+kubectl get nodes
+```

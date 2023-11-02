@@ -7,7 +7,7 @@ from pulumi_aws import ec2, iam, eks
 config = pulumi.Config()
 cluster_name = config.require("cluster_name")
 cluster_version = config.require("cluster_version")
-instance_types_str = config.require("instance_types")
+instance_type = config.require("instance_type")
 cluster_min_size = config.require_int("cluster_min_size")
 cluster_max_size = config.require_int("cluster_max_size")
 cluster_desired_size = config.require_int("cluster_desired_size")
@@ -15,12 +15,12 @@ private_subnets_str = config.require("private_subnets")
 availability_zones_str = config.require("availability_zones")
 private_subnets = json.loads(private_subnets_str)
 availability_zones = json.loads(availability_zones_str)
-instance_types = json.loads(instance_types_str)
 
 # Using Pulumi logging for cleaner debug output
 pulumi.log.info(
     f"These are the private subnets: {private_subnets}, {type(private_subnets)}")
 pulumi.log.info(f"These are the availability zones: {availability_zones}")
+
 
 
 # Define IAM Role
@@ -80,10 +80,10 @@ eks_cluster = eks.Cluster(cluster_name,
 
 
 # Deploy EBS CSI driver as a Kubernetes add-on
-ebs_csi = eks.Addon('ebs-csi-addon',
-                    cluster_name=eks_cluster.name,
-                    addon_name='aws-ebs-csi-driver',
-                    addon_version='v1.19.0-eksbuild.2')
+# ebs_csi = eks.Addon('ebs-csi-addon',
+#                     cluster_name=eks_cluster.name,
+#                     addon_name='aws-ebs-csi-driver',
+#                     addon_version='v1.19.0-eksbuild.2')
 
 
 nodegroup_role = iam.Role("eks-nodegroup-role",
@@ -111,6 +111,12 @@ for policy in policies_to_attach:
                              policy_arn=f"arn:aws:iam::aws:policy/{policy}",
                              role=nodegroup_role.name)
 
+
+launch_template = ec2.LaunchTemplate("nodegroup-launch-template",
+                                     instance_type=instance_type
+                                     )
+
+
 nodegroup = eks.NodeGroup("eks-nodegroup",
                           cluster_name=eks_cluster.name,
                           node_role_arn=nodegroup_role.arn,
@@ -120,8 +126,10 @@ nodegroup = eks.NodeGroup("eks-nodegroup",
                               min_size=cluster_min_size,
                               max_size=cluster_max_size,
                           ),
-                          instance_types=instance_types,
-                          ami_type="AL2_x86_64",
+                          launch_template={
+                              "id": launch_template.id,
+                              "version": launch_template.latest_version,
+                          }
                           )
 
 

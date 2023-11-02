@@ -1,8 +1,8 @@
 config:
   aws:region: us-east-1
   pulumi-eks:cluster_name: env0_eks_cluster
-  pulumi-eks:cluster_version: 1.27
-  pulumi-eks:instance_types: ["t2.small"]
+  pulumi-eks:cluster_version: 1.28
+  pulumi-eks:instance_type: t2.small
   pulumi-eks:cluster_min_size: 1
   pulumi-eks:cluster_max_size: 3
   pulumi-eks:cluster_desired_size: 2
