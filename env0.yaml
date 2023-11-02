@@ -2,6 +2,6 @@ version: 1
 
 deploy:
   steps:
-    setupVariables:
-      after:
+    pulumiPreview:
+      before:
         - pulumi config set pulumi-eks:cluster_name env0_eks_cluster_2
