@@ -16,7 +16,7 @@ Run the following command:
 ```bash
 mkdir Pulumi
 cd Pulumi
-pulumi new
+pulumi new kubernetes-aws-python
 ```
 
 ```bash
@@ -28,7 +28,8 @@ pulumi up
 To get the kubeconfig for the EKS cluster:
 
 ```bash
-aws eks update-kubeconfig --name $(pulumi stack output ClusterName)
+echo $(pulumi stack output kubeconfig) > mykubeconfig
+export KUBECONFIG=./mykubeconfig
 ```
 
 Now run kubectl commands to interact with the EKS cluster:
