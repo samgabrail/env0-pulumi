@@ -14,8 +14,8 @@ curl -fsSL https://get.pulumi.com | sh -s -- --version 3.91.1
 Run the following command:
 
 ```bash
-mkdir Pulumi
-cd Pulumi
+mkdir Pulumi-EKS
+cd Pulumi-EKS
 pulumi new kubernetes-aws-python
 ```
 
